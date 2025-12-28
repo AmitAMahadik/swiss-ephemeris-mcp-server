@@ -1,0 +1,121 @@
+id: /subscriptions/55c97160-0abd-4789-8615-9cefdf649275/resourceGroups/rg-docker-demo/providers/Microsoft.App/containerapps/conapp-exastra
+identity:
+  principalId: 8ed454b6-e3f6-4ac3-a157-e4d60d167294
+  tenantId: 345d68cf-843d-4115-a38e-887864d9312c
+  type: SystemAssigned
+location: West US
+name: conapp-exastra
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    dapr: null
+    identitySettings: []
+    ingress:
+      additionalPortMappings: null
+      allowInsecure: false
+      clientCertificateMode: null
+      corsPolicy: null
+      customDomains: null
+      exposedPort: 0
+      external: true
+      fqdn: conapp-exastra.yellowrock-7298f3d8.westus.azurecontainerapps.io
+      ipSecurityRestrictions: null
+      stickySessions: null
+      targetPort: 8000
+      targetPortHttpScheme: null
+      traffic:
+      - latestRevision: true
+        weight: 100
+      transport: Http
+    maxInactiveRevisions: 100
+    registries:
+    - identity: system
+      passwordSecretRef: ''
+      server: amitdockerdemo.azurecr.io
+      username: ''
+    revisionTransitionThreshold: null
+    runtime: null
+    secrets: null
+    service: null
+    targetLabel: ''
+  customDomainVerificationId: CBDC47FA8D79FD207219E6DEAF07F67AA32D7ADCDC5CB87B321665A37DE555CB
+  delegatedIdentities: []
+  environmentId: /subscriptions/55c97160-0abd-4789-8615-9cefdf649275/resourceGroups/rg-docker-demo/providers/Microsoft.App/managedEnvironments/conapp-exastra-env
+  eventStreamEndpoint: https://westus.azurecontainerapps.dev/subscriptions/55c97160-0abd-4789-8615-9cefdf649275/resourceGroups/rg-docker-demo/containerApps/conapp-exastra/eventstream
+  latestReadyRevisionName: conapp-exastra--p72j5z2
+  latestRevisionFqdn: conapp-exastra--p72j5z2.yellowrock-7298f3d8.westus.azurecontainerapps.io
+  latestRevisionName: conapp-exastra--p72j5z2
+  managedEnvironmentId: /subscriptions/55c97160-0abd-4789-8615-9cefdf649275/resourceGroups/rg-docker-demo/providers/Microsoft.App/managedEnvironments/conapp-exastra-env
+  outboundIpAddresses:
+  - 20.253.254.228
+  - 20.253.254.247
+  - 20.253.254.64
+  - 20.253.254.235
+  - 104.210.49.205
+  - 104.210.49.250
+  - 104.210.49.206
+  - 104.210.55.200
+  - 104.210.49.225
+  - 104.210.49.214
+  - 13.87.246.93
+  - 13.87.246.131
+  - 172.184.201.140
+  - 20.253.230.72
+  - 172.184.199.43
+  - 172.184.144.39
+  - 57.154.179.254
+  - 13.87.246.102
+  - 13.87.246.100
+  - 13.93.214.71
+  - 13.91.44.183
+  - 13.91.98.58
+  - 13.91.96.202
+  - 13.91.40.31
+  - 13.91.45.140
+  - 52.241.252.183
+  - 13.93.226.252
+  - 172.185.144.212
+  - 20.253.243.105
+  - 13.91.101.49
+  - 20.66.108.61
+  - 20.253.179.55
+  - 52.241.252.15
+  - 172.184.116.67
+  - 20.57.201.64
+  - 172.185.9.250
+  patchingMode: Automatic
+  provisioningState: Succeeded
+  runningStatus: Running
+  template:
+    containers:
+    - env:
+      - name: MCP_HTTP_MODE
+        value: 'true'
+      image: amitdockerdemo.azurecr.io/swiss-ephemeris-mcp:latest
+      imageType: ContainerImage
+      name: conapp-exastra
+      resources:
+        cpu: 1.0
+        ephemeralStorage: 4Gi
+        memory: 2Gi
+    initContainers: null
+    revisionSuffix: ''
+    scale:
+      cooldownPeriod: 300
+      maxReplicas: 1
+      minReplicas: 1
+      pollingInterval: 30
+      rules: null
+    serviceBinds: null
+    terminationGracePeriodSeconds: null
+    volumes: null
+  workloadProfileName: Consumption
+resourceGroup: rg-docker-demo
+systemData:
+  createdAt: '2025-12-27T21:25:59.699556'
+  createdBy: am.it.mahadik@gmail.com
+  createdByType: User
+  lastModifiedAt: '2025-12-27T21:27:31.9461647'
+  lastModifiedBy: am.it.mahadik@gmail.com
+  lastModifiedByType: User
+type: Microsoft.App/containerApps
