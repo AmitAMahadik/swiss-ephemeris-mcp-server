@@ -51,6 +51,11 @@ class SwissEphemerisServer {
                   type: 'number',
                   description: 'Longitude in decimal degrees, positive east',
                 },
+                zodiac: {
+                  type: 'string',
+                  description: 'Zodiac system: "tropical" (default) or "sidereal_lahiri"',
+                  enum: ['tropical', 'sidereal_lahiri']
+                },
               },
               required: ['datetime', 'latitude', 'longitude'],
             },
@@ -72,6 +77,11 @@ class SwissEphemerisServer {
                 longitude: {
                   type: 'number',
                   description: 'Birth longitude in decimal degrees, positive east',
+                },
+                zodiac: {
+                  type: 'string',
+                  description: 'Zodiac system: "tropical" (default) or "sidereal_lahiri"',
+                  enum: ['tropical', 'sidereal_lahiri']
                 },
               },
               required: ['birth_datetime', 'latitude', 'longitude'],
@@ -107,6 +117,11 @@ class SwissEphemerisServer {
                   type: 'number',
                   description: 'Longitude for solar return location (optional, defaults to birth location)',
                 },
+                zodiac: {
+                  type: 'string',
+                  description: 'Zodiac system: "tropical" (default) or "sidereal_lahiri"',
+                  enum: ['tropical', 'sidereal_lahiri']
+                },
               },
               required: ['birth_datetime', 'birth_latitude', 'birth_longitude', 'return_year'],
             },
@@ -140,6 +155,11 @@ class SwissEphemerisServer {
                 person2_longitude: {
                   type: 'number',
                   description: 'Person 2 birth longitude in decimal degrees, positive east',
+                },
+                zodiac: {
+                  type: 'string',
+                  description: 'Zodiac system: "tropical" (default) or "sidereal_lahiri"',
+                  enum: ['tropical', 'sidereal_lahiri']
                 },
               },
               required: ['person1_datetime', 'person1_latitude', 'person1_longitude', 'person2_datetime', 'person2_latitude', 'person2_longitude'],
@@ -337,7 +357,7 @@ class SwissEphemerisServer {
     };
   }
 
-  calculateEphemeris(datetime, latitude, longitude) {
+  calculateEphemeris(datetime, latitude, longitude, zodiac = 'tropical') {
     try {
       const date = new Date(datetime);
       if (isNaN(date.getTime())) {
@@ -347,10 +367,11 @@ class SwissEphemerisServer {
       const swissDate = this.formatDateToSwiss(date);
       const swissTime = this.formatTimeToSwiss(date);
       const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
-
+      const zodiacSystem = (zodiac === 'sidereal_lahiri') ? 'sidereal_lahiri' : 'tropical';
+      const siderealFlag = (zodiacSystem === 'sidereal_lahiri') ? ' -sid1' : '';
       // Execute swetest for planets, including asteroids and additional points
       // 0123456789 = Sun through Pluto, t = true Node, A = mean Apogee (Lilith), D = Chiron, F = Ceres, G = Pallas, H = Juno, I = Vesta
-      const planetCmd = `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime} -p0123456789tADFGHI -fPZ -g, -head`;
+      const planetCmd = `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime}${siderealFlag} -p0123456789tADFGHI -fPZ -g, -head`;
       let planetOutput;
       try {
         planetOutput = execSync(planetCmd, { encoding: 'utf8' });
@@ -359,7 +380,7 @@ class SwissEphemerisServer {
       }
 
       // Execute swetest for houses (Placidus system)
-      const houseCmd = `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime} -house${longitude},${latitude},P -fPZ -g, -head`;
+      const houseCmd = `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime}${siderealFlag} -house${longitude},${latitude},P -fPZ -g, -head`;
       let houseOutput;
       try {
         houseOutput = execSync(houseCmd, { encoding: 'utf8' });
@@ -527,6 +548,7 @@ class SwissEphemerisServer {
         chart_points: chartPoints,
         additional_points: additionalPoints,
         datetime: datetime,
+        zodiac: zodiacSystem,
         coordinates: {
           latitude,
           longitude
@@ -611,117 +633,98 @@ class SwissEphemerisServer {
 
   async handleToolCall(name, args) {
     switch (name) {
-      case 'calculate_planetary_positions':
-        const { datetime, latitude, longitude } = args;
-        
+      case 'calculate_planetary_positions': {
+        const { datetime, latitude, longitude, zodiac } = args;
         if (!datetime || typeof datetime !== 'string') {
           throw new McpError(
             ErrorCode.InvalidParams,
             'datetime parameter is required and must be a string'
           );
         }
-        
         if (typeof latitude !== 'number' || latitude < -90 || latitude > 90) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'latitude must be a number between -90 and 90'
           );
         }
-        
         if (typeof longitude !== 'number' || longitude < -180 || longitude > 180) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'longitude must be a number between -180 and 180'
           );
         }
-
-        return this.calculateEphemeris(datetime, latitude, longitude);
-
-      case 'calculate_transits':
-        const { birth_datetime, latitude: birth_latitude, longitude: birth_longitude } = args;
-        
+        return this.calculateEphemeris(datetime, latitude, longitude, args?.zodiac);
+      }
+      case 'calculate_transits': {
+        const { birth_datetime, latitude: birth_latitude, longitude: birth_longitude, zodiac } = args;
         if (!birth_datetime || typeof birth_datetime !== 'string') {
           throw new McpError(
             ErrorCode.InvalidParams,
             'birth_datetime parameter is required and must be a string'
           );
         }
-        
         if (typeof birth_latitude !== 'number' || birth_latitude < -90 || birth_latitude > 90) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'birth_latitude must be a number between -90 and 90'
           );
         }
-        
         if (typeof birth_longitude !== 'number' || birth_longitude < -180 || birth_longitude > 180) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'birth_longitude must be a number between -180 and 180'
           );
         }
-
         // Calculate birth chart
-        const natalChart = this.calculateEphemeris(birth_datetime, birth_latitude, birth_longitude);
- 
-         // Calculate current transits
-         const currentDate = new Date();
-         const currentISOString = currentDate.toISOString();
-         const currentEphemeris = this.calculateEphemeris(currentISOString, birth_latitude, birth_longitude);
- 
-         return {
-           natal_chart: natalChart,
-           current_transits: currentEphemeris,
-           calculation_time: currentISOString
-         };
-
-      case 'calculate_solar_revolution':
-        const { birth_datetime: sr_birth_datetime, birth_latitude: sr_birth_latitude, birth_longitude: sr_birth_longitude, return_year, return_latitude, return_longitude } = args;
-
+        const natalChart = this.calculateEphemeris(birth_datetime, birth_latitude, birth_longitude, zodiac);
+        // Calculate current transits
+        const currentDate = new Date();
+        const currentISOString = currentDate.toISOString();
+        const currentEphemeris = this.calculateEphemeris(currentISOString, birth_latitude, birth_longitude, zodiac);
+        return {
+          natal_chart: natalChart,
+          current_transits: currentEphemeris,
+          calculation_time: currentISOString
+        };
+      }
+      case 'calculate_solar_revolution': {
+        const { birth_datetime: sr_birth_datetime, birth_latitude: sr_birth_latitude, birth_longitude: sr_birth_longitude, return_year, return_latitude, return_longitude, zodiac } = args;
         if (!sr_birth_datetime || typeof sr_birth_datetime !== 'string') {
           throw new McpError(
             ErrorCode.InvalidParams,
             'birth_datetime parameter is required and must be a string'
           );
         }
-
         if (typeof sr_birth_latitude !== 'number' || sr_birth_latitude < -90 || sr_birth_latitude > 90) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'birth_latitude must be a number between -90 and 90'
           );
         }
-
         if (typeof sr_birth_longitude !== 'number' || sr_birth_longitude < -180 || sr_birth_longitude > 180) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'birth_longitude must be a number between -180 and 180'
           );
         }
-
         if (typeof return_year !== 'number' || return_year < 1900 || return_year > 2100) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'return_year must be a number between 1900 and 2100'
           );
         }
-
         // Calculate birth chart to get natal Sun position
-        const srNatalChart = this.calculateEphemeris(sr_birth_datetime, sr_birth_latitude, sr_birth_longitude);
+        const srNatalChart = this.calculateEphemeris(sr_birth_datetime, sr_birth_latitude, sr_birth_longitude, zodiac);
         const natalSunLongitude = srNatalChart.planets.Sun.longitude;
-
         // Calculate solar return chart for the given year
         // Use the birthday in the return year as a starting point
         const birthDate = new Date(sr_birth_datetime);
         const returnDate = new Date(return_year, birthDate.getMonth(), birthDate.getDate(), birthDate.getHours(), birthDate.getMinutes(), birthDate.getSeconds());
-        
         // Use return location if provided, otherwise use birth location
         const returnLat = return_latitude !== undefined ? return_latitude : sr_birth_latitude;
         const returnLon = return_longitude !== undefined ? return_longitude : sr_birth_longitude;
-        
         // Calculate the solar return chart at the approximate return date
-        const solarReturnChart = this.calculateEphemeris(returnDate.toISOString(), returnLat, returnLon);
-
+        const solarReturnChart = this.calculateEphemeris(returnDate.toISOString(), returnLat, returnLon, zodiac);
         return {
           natal_chart: srNatalChart,
           solar_return_chart: {
@@ -730,6 +733,7 @@ class SwissEphemerisServer {
             chart_points: solarReturnChart.chart_points,
             additional_points: solarReturnChart.additional_points,
             datetime: returnDate.toISOString(),
+            zodiac: solarReturnChart.zodiac,
             coordinates: {
               latitude: returnLat,
               longitude: returnLon
@@ -739,68 +743,58 @@ class SwissEphemerisServer {
           return_sun_longitude: solarReturnChart.planets.Sun.longitude,
           calculation_time: new Date().toISOString()
         };
-
-      case 'calculate_synastry':
-        const { person1_datetime, person1_latitude, person1_longitude, person2_datetime, person2_latitude, person2_longitude } = args;
-
+      }
+      case 'calculate_synastry': {
+        const { person1_datetime, person1_latitude, person1_longitude, person2_datetime, person2_latitude, person2_longitude, zodiac } = args;
         if (!person1_datetime || typeof person1_datetime !== 'string') {
           throw new McpError(
             ErrorCode.InvalidParams,
             'person1_datetime parameter is required and must be a string'
           );
         }
-
         if (typeof person1_latitude !== 'number' || person1_latitude < -90 || person1_latitude > 90) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'person1_latitude must be a number between -90 and 90'
           );
         }
-
         if (typeof person1_longitude !== 'number' || person1_longitude < -180 || person1_longitude > 180) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'person1_longitude must be a number between -180 and 180'
           );
         }
-
         if (!person2_datetime || typeof person2_datetime !== 'string') {
           throw new McpError(
             ErrorCode.InvalidParams,
             'person2_datetime parameter is required and must be a string'
           );
         }
-
         if (typeof person2_latitude !== 'number' || person2_latitude < -90 || person2_latitude > 90) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'person2_latitude must be a number between -90 and 90'
           );
         }
-
         if (typeof person2_longitude !== 'number' || person2_longitude < -180 || person2_longitude > 180) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'person2_longitude must be a number between -180 and 180'
           );
         }
-
         // Calculate person 1's natal chart
-        const person1NatalChart = this.calculateEphemeris(person1_datetime, person1_latitude, person1_longitude);
-
+        const person1NatalChart = this.calculateEphemeris(person1_datetime, person1_latitude, person1_longitude, zodiac);
         // Calculate person 2's natal chart
-        const person2NatalChart = this.calculateEphemeris(person2_datetime, person2_latitude, person2_longitude);
-
+        const person2NatalChart = this.calculateEphemeris(person2_datetime, person2_latitude, person2_longitude, zodiac);
         // Calculate aspects between the two charts
         const aspects = this.calculateSynastryAspects(person1NatalChart.planets, person2NatalChart.planets);
-
         return {
           person1_chart: person1NatalChart,
           person2_chart: person2NatalChart,
           synastry_aspects: aspects,
           calculation_time: new Date().toISOString()
         };
-
+      }
       default:
         throw new McpError(
           ErrorCode.MethodNotFound,
